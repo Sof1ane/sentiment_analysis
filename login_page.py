@@ -36,9 +36,9 @@ def form():
             
             
             
-def add_data(a,b,c,d,e):
+def add_data(a,b,h,d,e):
     c.execute("""CREATE TABLE IF NOT EXISTS thoughts_form(NAME TEXT(50), FIRSTNAME TEXT(50), DATE TEXT(50), THOUGHTS TEXT(500), SENTIMENT TEXT(50));""")
-    c.execute("INSERT INTO thoughts_form VALUES (?,?,?,?,?)", (a,b,c,d,e))
+    c.execute("INSERT INTO thoughts_form VALUES (?,?,?,?,?)", (a,b,h,d,e))
     conn.commit()
     conn.close()
     st.success("Successfully added")
@@ -106,10 +106,10 @@ def main():
 		new_user = st.text_input('Username')
 		new_passwd = st.text_input('Password',type='password')
   
-	if st.button('SignUp'):
-		create_usertable()
-		add_userdata(new_user,make_hashes(new_passwd))
-		st.success("You have successfully created an account.Go to the Login Menu to login")
+		if st.button('SignUp'):
+			create_usertable()
+			add_userdata(new_user,make_hashes(new_passwd))
+			st.success("You have successfully created an account.Go to the Login Menu to login")
 
 
 
