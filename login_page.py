@@ -3,6 +3,7 @@
 import streamlit as st
 import hashlib
 import pandas as pd
+import requests
 
 
 def make_hashes(password):
@@ -28,10 +29,12 @@ def form():
         date = st.date_input("Enter the date : ")
         thoughts = st.text_area("Write what you have to say ")
         submission = st.form_submit_button(label = "submit")
-        
+
         if submission == True:
-            
-            sentiment = "triste"
+            x= requests.post('http://127.0.0.1:5000/predict', json={"thoughts": thoughts})
+            prediction = x.text
+            print(prediction)
+            sentiment = prediction            
             add_data(name, first_name, date,thoughts, sentiment)
             
             
