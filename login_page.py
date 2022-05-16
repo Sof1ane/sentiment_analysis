@@ -4,7 +4,7 @@ import streamlit as st
 import hashlib
 import pandas as pd
 import requests
-
+import plotly.express as px
 
 def make_hashes(password):
 	return hashlib.sha256(str.encode(password)).hexdigest()
@@ -19,7 +19,32 @@ def check_hashes(password,hashed_text):
 import sqlite3 
 conn = sqlite3.connect('data.db')
 c = conn.cursor()
-# DB  Functions
+
+# DB Custom Functions
+
+def signup():
+	st.subheader("Account Creation")
+	new_name = st.text_input("Enter your name")
+	new_first_name = st.text_input("Enter your first name")
+	new_user = st.text_input('Username')
+	new_passwd = st.text_input('Password',type='password')
+  
+	if st.button('Submit'):
+		create_usertable()
+		add_userdata(new_name, new_first_name, new_user,make_hashes(new_passwd))
+		st.success("You have successfully created an account. Go to the Login Menu to login")
+  
+def add_patient():
+	st.subheader("Add a patient account")
+	new_name = st.text_input("Enter your patient name")
+	new_first_name = st.text_input("Enter your patient first name")
+	new_user = st.text_input('Patient Username')
+	new_passwd = st.text_input('Patient Password',type='password')
+  
+	if st.button('Submit'):
+		create_usertable()
+		add_userdata(new_name, new_first_name, new_user,make_hashes(new_passwd))
+		st.success("You have successfully added or created an account. Go to the Login Menu to login")
 
 def form(username):
     st.write("Enter your feelings")
@@ -31,16 +56,13 @@ def form(username):
 
         if submission == True:
             x= requests.post('https://apiprediction.azurewebsites.net/predict', json={"thoughts": thoughts})
-            prediction = x.text
-            print(prediction)
-            sentiment = prediction            
+            sentiment = x.text
             add_data(username,date,thoughts, sentiment)
-            
             
             
 def add_data(a,b,h,d):
     c.execute("""CREATE TABLE IF NOT EXISTS thoughts_form(USERNAME TEXT(50), DATE TEXT(50), THOUGHTS TEXT(500), SENTIMENT TEXT(50));""")
-    c.execute("INSERT INTO thoughts_form VALUES (?,?,?,?)", (a,b,h,d))
+    c.execute("INSERT INTO thoughts_form SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM thoughts_form WHERE username= ? AND date = ?)",(a,b,h,d,a,b))
     conn.commit()
     conn.close()
     st.success("Successfully added")
@@ -98,15 +120,34 @@ def main():
 				
 				if check_status(username) == "patient":
 					st.success("Logged In as {}".format(username))
-		
-					form(username)
-		
-				elif check_status(username) == "doctor":
-					task = st.selectbox("Task",["Analytics","Profiles", "Thoughts"])
-					if task == "Analytics":
-						st.subheader("Analytics")
+					task_patient = st.selectbox("Task",["Add Text","Modify Text", "See my texts"])
+					if task_patient =='Add Text':
+						form(username)
+						
+					elif task_patient == 'Modify Text':
+						date = st.date_input("Enter the date : ")
+						new_text = st.text_area("Write what you have to say ")
+						submit = st.button(label = "submit")
+						if submit:
+							x= requests.post('https://apiprediction.azurewebsites.net/predict', json={"thoughts": new_text})
+							prediction = x.text	      
+							c.execute("UPDATE thoughts_form SET THOUGHTS = ?, SENTIMENT =? WHERE DATE = ?",(new_text,prediction,date))
+							conn.commit()
+							conn.close()
+							st.success("Successfully added")
+
+					elif task_patient == 'See my texts':
+						date_see = st.date_input("Enter the date of your post : ")
+						c.execute("SELECT thoughts FROM thoughts_form WHERE USERNAME = ? AND DATE=?",(username,date_see))
+						my_thoughts = c.fetchall()
+						clean_db_thoughts = pd.DataFrame(my_thoughts)
+						st.dataframe(clean_db_thoughts)
       
-					elif task == "Profiles":
+					
+				elif check_status(username) == "doctor":
+					task = st.selectbox("Task",["Profiles", "Thoughts","Add Patient", "Modify Patient Infos", "Show Wheel"])
+      
+					if task == "Profiles":
 						st.subheader("User Profiles")
 						user_table = view_all_users()
 						clean_db_1 = pd.DataFrame(user_table,columns=["name", "firstname","Username","Password","Status"])
@@ -117,24 +158,46 @@ def main():
 						user_thoughts = view_all_thoughts()
 						clean_db_2 = pd.DataFrame(user_thoughts,columns=["Username", "Date","Thoughts","Sentiment"])
 						st.dataframe(clean_db_2)
-					
+      
+					elif task == "Add Patient":
+						add_patient()
+								
+					elif task == "Modify Patient Infos":
+						selected_user = st.text_input('Chose the username of the patient')
+						updated_name = st.text_input('Enter the new name')
+						updated_first_name = st.text_input('Enter the new first name')
+						submission = st.button(label = "Submit new entries")
+
+						if submission == True:
+							c.execute("UPDATE userstable SET name = ?, firstname = ? where username = ?",(updated_name, updated_first_name,selected_user))
+       
+					elif task == "Show Wheel":
+						user_or_name = st.selectbox("How do you want to select",["Username","Name and First Name"])
+						if user_or_name == "Username":
+							wheel_username = st.text_input('Show wheel for this username')
+							first_date = st.date_input('Chose first date')
+							second_date = st.date_input('Chose second date')
+							submit_year = st.button(label = "Submit year")
+							if submit_year:
+								if first_date == second_date :
+									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form WHERE username = ? AND date = ? GROUP BY sentiment",(wheel_username,first_date))
+									thoughts_year = c.fetchall()
+									between_year_df = pd.DataFrame(thoughts_year, columns=["username","sentiment","count"])
+									fig = px.pie(between_year_df, values = "count",names="sentiment" )
+									st.plotly_chart(fig, use_container_width=True)
+
+								else:
+									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form WHERE username = ? AND date between ? and ? GROUP BY sentiment",(wheel_username,first_date,second_date))
+									thoughts_year = c.fetchall()
+									between_year_df = pd.DataFrame(thoughts_year, columns=["username","sentiment","count"])
+									fig = px.pie(between_year_df, values = "count",names="sentiment" )
+									st.plotly_chart(fig, use_container_width=True)
+
 			else:
 				st.warning("Incorrect Username/Password")
     
 	elif choice == "SignUp":
-		st.subheader("Create an Account")
-		new_name = st.text_input("Enter your name")
-		new_first_name = st.text_input("Enter your first name")
-		new_user = st.text_input('Username')
-		new_passwd = st.text_input('Password',type='password')
-  
-		if st.button('SignUp'):
-			create_usertable()
-			add_userdata(new_name, new_first_name, new_user,make_hashes(new_passwd))
-			st.success("You have successfully created an account.Go to the Login Menu to login")
-
-
-
-
+		signup()
+		
 if __name__ == '__main__':
 	main()
