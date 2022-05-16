@@ -192,21 +192,21 @@ def main():
 									st.plotly_chart(fig, use_container_width=True)
          
 						elif user_or_name == "Name and First Name":
-							wheel_name = st.text_input('Show wheel for this user')
-							wheel_first_name = st.text_input('Show wheel for this user')
+							wheel_name = st.text_input('Show wheel for this user name')
+							wheel_first_name = st.text_input('Show wheel for this user first name')
 							first_date = st.date_input('Chose first date')
 							second_date = st.date_input('Chose second date')
 							submit_year = st.button(label = "Submit year")
 							if submit_year:
 								if first_date == second_date :
-									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form WHERE name=? and firstname=? AND date = ? GROUP BY sentiment",(wheel_name,wheel_first_name,first_date))
+									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form natural join userstable WHERE name=? and firstname=? AND date = ? GROUP BY sentiment",(wheel_name,wheel_first_name,first_date))
 									thoughts_year = c.fetchall()
 									between_year_df = pd.DataFrame(thoughts_year, columns=["username","sentiment","count"])
 									fig = px.pie(between_year_df, values = "count",names="sentiment" )
 									st.plotly_chart(fig, use_container_width=True)
 
 								else:
-									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form WHERE name=? and firstname=? AND date between ? and ? GROUP BY sentiment",(wheel_name,wheel_first_name,first_date,second_date))
+									c.execute("SELECT username,sentiment,count(sentiment) FROM thoughts_form natural join userstable WHERE name=? and firstname=? AND date between ? and ? GROUP BY sentiment",(wheel_name,wheel_first_name,first_date,second_date))
 									thoughts_year = c.fetchall()
 									between_year_df = pd.DataFrame(thoughts_year, columns=["username","sentiment","count"])
 									fig = px.pie(between_year_df, values = "count",names="sentiment" )
